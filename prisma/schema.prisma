@@ -1,0 +1,272 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(cuid())
+  name           String?
+  email          String?         @unique
+  emailVerified  DateTime?
+  image          String?
+  role           String?
+  about          String?
+  Session        Session[]
+  Account        Account?
+  whatsappNumber String?
+  Authenticator  Authenticator[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  request        Request[]
+  request_mentor RequestMentor[]
+  mentor         Mentor?
+  mentee         Mentee?
+  user_tags      UserTags[]
+  bids           Bids[]
+  user_review    UserReview[]
+}
+
+model UserTags {
+  userId    String
+  tagId     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+  tags      Tag?     @relation(fields: [tagId], references: [id])
+
+  @@id([userId, tagId])
+  @@map("users_tags")
+}
+
+model UserReview {
+  id         Int             @id @default(autoincrement())
+  userId     String
+  mentorId   Int
+  reviewRole UserReviewRole?
+  rating     Int
+  comment    String
+  user       User?           @relation(fields: [userId], references: [id])
+  mentor     Mentor?         @relation(fields: [mentorId], references: [id])
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@map("users_reviews")
+}
+
+model Mentor {
+  id          Int          @id @default(autoincrement())
+  userId      String       @unique
+  user_review UserReview[]
+  user        User?        @relation(fields: [userId], references: [id])
+
+  @@map("mentors")
+}
+
+model Mentee {
+  id     Int    @id @default(autoincrement())
+  userId String @unique
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@map("mentees")
+}
+
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String  @unique
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @db.Text
+  access_token             String? @db.Text
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String? @db.Text
+  session_state            String?
+  refresh_token_expires_in Int?
+  user                     User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Request {
+  id                    Int                   @id @default(autoincrement())
+  userId                String
+  provinceId            Int
+  districtId            Int
+  location              String
+  title                 String
+  description           String
+  dateTime              DateTime
+  reward                Decimal?
+  additionalInformation String?
+  specialRequest        String?
+  isOnline              Boolean
+  status                RequestStatus         @default(NEW)
+  user                  User                  @relation(fields: [userId], references: [id])
+  RequestMentor         RequestMentor[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  RequestTags           RequestTags[]
+  Bids                  Bids[]
+  RequestTransactions   RequestTransactions[]
+
+  @@map("requests")
+}
+
+model RequestTags {
+  requestId Int
+  tagId     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  request   Request? @relation(fields: [requestId], references: [id])
+  tags      Tag?     @relation(fields: [tagId], references: [id])
+
+  @@id([requestId, tagId])
+  @@map("request_tags")
+}
+
+model RequestMentor {
+  requestId Int
+  userId    String
+  request   Request? @relation(fields: [requestId], references: [id])
+  User      User?    @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([requestId, userId])
+  @@map("request_mentors")
+}
+
+// model Category {
+//   id           Int            @id @default(autoincrement())
+//   name         String
+//   CategoryTags CategoryTags[]
+//   createdAt    DateTime       @default(now())
+//   updatedAt    DateTime       @updatedAt
+
+//   @@map("categories")
+// }
+
+model Tag {
+  id          Int           @id @default(autoincrement())
+  name        String
+  // CategoryTags CategoryTags[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  RequestTags RequestTags[]
+  UserTags    UserTags[]
+
+  @@map("tags")
+}
+
+// model CategoryTags {
+//   categorId Int
+//   tagId     Int
+//   category  Category @relation(fields: [categorId], references: [id])
+//   tag       Tag      @relation(fields: [tagId], references: [id])
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@id([categorId, tagId])
+//   @@map("category_tags")
+// }
+
+model Bids {
+  id        Int           @id @default(autoincrement())
+  userId    String
+  requestId Int
+  message   String
+  status    BiddingStatus @default(WAITING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  request   Request?      @relation(fields: [requestId], references: [id])
+  user      User?         @relation(fields: [userId], references: [id])
+
+  @@map("bids")
+}
+
+model RequestTransactions {
+  id        Int                      @id @default(autoincrement())
+  orderId   String                   @unique
+  requestId Int
+  token     String
+  pageUrl   String
+  status    RequestTransactionStatus @default(WAITING)
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  request   Request?                 @relation(fields: [requestId], references: [id])
+
+  @@map("request_transactions")
+}
+
+enum RequestTransactionStatus {
+  WAITING
+  SUCCESS
+  CANCEL
+  FAILED
+}
+
+enum RequestStatus {
+  NEW
+  PROCESS
+  DONE
+}
+
+enum BiddingStatus {
+  WAITING
+  ACCEPTED
+  REJECTED
+}
+
+enum UserReviewRole {
+  MENTOR
+  MENTEE
+}
